@@ -69,6 +69,12 @@ get_root_pid(){
     get_prop "$ID" ".State.Pid"
 }
 
+get_cgroup_parent(){
+    local ID="$(get_id "$1")"
+    local cgroup_parent=$(get_prop "$ID" ".HostConfig.CgroupParent")
+    [ -z "$cgroup_parent" ] && echo "docker" || echo $cgroup_parent
+}
+
 pids() {
     local ID="$(get_id "$1")"
     paste -sd "," < "$(_path "/sys/fs/cgroup/devices/docker/$ID/tasks")"
@@ -135,7 +141,7 @@ supported_cgroups() {
 cg_exec() {
     local ID="$(get_id "$1")"
     shift
-    cgexec -g "$(supported_cgroups "$ID"):docker/$ID" -- "$@"
+    cgexec -g "$(supported_cgroups "$ID"):$(get_cgroup_parent "$ID")/$ID" -- "$@"
 }
 
 ns_enter() {
@@ -149,7 +155,7 @@ inside() {
     local ID="$(get_id "$1")"
     local PID="$(get_root_pid "$1")"
     shift
-    cgexec -g "$(supported_cgroups "$ID"):docker/$ID" -- \
+    cgexec -g "$(supported_cgroups "$ID"):$(get_cgroup_parent "$ID")/$ID" -- \
         nsenter --target "$PID" --mount --uts --ipc --net --pid -- "$@"
 }
 
